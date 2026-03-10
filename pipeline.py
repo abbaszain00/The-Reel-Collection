@@ -44,10 +44,12 @@ def add_streaming_info(movies: list[dict]) -> list[dict]:
 
 @task
 def filter_and_save(movies: list[dict], genre_map: dict) -> str:
-    df = pd.DataFrame(movies)[["title", "release_date", "vote_average", "vote_count", "overview", "genre_ids", "streaming_platforms", "on_major_platform"]]
+    df = pd.DataFrame(movies)[["title", "release_date", "vote_average", "vote_count", "overview", "genre_ids", "poster_path", "streaming_platforms", "on_major_platform"]]
+    df["poster_path"] = df["poster_path"].fillna("")
     df["year"] = pd.to_datetime(df["release_date"], errors="coerce").dt.year
     df["genres"] = df["genre_ids"].apply(lambda ids: ", ".join([genre_map.get(i, "") for i in ids]))
     df["last_updated"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
 
     reel = df[
         (df["vote_average"] >= MIN_RATING) &
