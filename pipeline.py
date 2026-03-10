@@ -43,9 +43,10 @@ def add_streaming_info(movies: list[dict]) -> list[dict]:
 
 
 @task
-def filter_and_save(movies: list[dict]) -> str:
-    df = pd.DataFrame(movies)[["title", "release_date", "vote_average", "vote_count", "overview", "streaming_platforms", "on_major_platform"]]
+def filter_and_save(movies: list[dict], genre_map: dict) -> str:
+    df = pd.DataFrame(movies)[["title", "release_date", "vote_average", "vote_count", "overview", "genre_ids", "streaming_platforms", "on_major_platform"]]
     df["year"] = pd.to_datetime(df["release_date"], errors="coerce").dt.year
+    df["genres"] = df["genre_ids"].apply(lambda ids: ", ".join([genre_map.get(i, "") for i in ids]))
     df["last_updated"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     reel = df[
@@ -55,8 +56,14 @@ def filter_and_save(movies: list[dict]) -> str:
     ].sort_values("vote_average", ascending=False)
 
     reel.to_csv(OUTPUT_PATH, index=False)
-    print(f"Saved {len(reel)} films to {OUTPUT_PATH}")
+    print(f"Saved {len(reel)} films to {OUTPUT_PATH} out of {len(df)} fetched")
     return OUTPUT_PATH
+
+@task
+def fetch_genre_map() -> dict:
+    r = requests.get(f"{BASE_URL}/genre/movie/list", headers=HEADERS)
+    genres = r.json().get("genres", [])
+    return {g["id"]: g["name"] for g in genres}
 
 
 # ── FLOW ──────────────────────────────────────────────────────────────────────
@@ -64,8 +71,9 @@ def filter_and_save(movies: list[dict]) -> str:
 @flow(name="Reel Collection Pipeline", log_prints=True)
 def reel_collection_pipeline():
     movies = fetch_movies()
+    genre_map = fetch_genre_map()
     movies = add_streaming_info(movies)
-    filter_and_save(movies)
+    filter_and_save(movies, genre_map)
 
 
 if __name__ == "__main__":
