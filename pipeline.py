@@ -42,6 +42,17 @@ def fetch_genre_map() -> dict:
     genres = r.json().get("genres", [])
     return {g["id"]: g["name"] for g in genres}
 
+@task(retries=2, name="Fetch Keywords")
+def fetch_keywords(movies: list[dict]) -> list[dict]:
+    for movie in movies:
+        try:
+            r = requests.get(f"{BASE_URL}/movie/{movie['id']}/keywords", headers=HEADERS)
+            keywords = [k["name"] for k in r.json().get("keywords", [])]
+            movie["keywords"] = ", ".join(keywords[:5])
+        except Exception:
+            movie["keywords"] = ""
+    return movies
+
 
 @task(retries=2)
 def add_streaming_info(movies: list[dict]) -> list[dict]:
@@ -58,7 +69,7 @@ def add_streaming_info(movies: list[dict]) -> list[dict]:
 
 @task(name="Filter & Save")
 def filter_and_save(movies: list[dict], genre_map: dict) -> str:
-    df = pd.DataFrame(movies)[["title", "release_date", "vote_average", "vote_count", "overview", "genre_ids", "poster_path", "streaming_platforms", "on_major_platform"]]
+    df = pd.DataFrame(movies)[["title", "release_date", "vote_average", "vote_count", "overview", "genre_ids", "poster_path", "keywords", "streaming_platforms", "on_major_platform"]]
     df["poster_path"] = df["poster_path"].fillna("")
     df["year"] = pd.to_datetime(df["release_date"], errors="coerce").dt.year
     df["genres"] = df["genre_ids"].apply(lambda ids: ", ".join([genre_map.get(i, "") for i in ids]))
@@ -86,6 +97,7 @@ def reel_collection_pipeline():
     movies = fetch_movies()
     genre_map = fetch_genre_map()
     movies = add_streaming_info(movies)
+    movies = fetch_keywords(movies)
     filter_and_save(movies, genre_map)
 
 
