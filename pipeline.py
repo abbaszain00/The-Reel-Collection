@@ -7,9 +7,14 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+TMDB_API_TOKEN = os.getenv("TMDB_API_TOKEN")
+
+
+if not TMDB_API_TOKEN:
+    raise ValueError("TMDB_API_TOKEN not found. Check your .env file.")
+
 # ── CONFIG ────────────────────────────────────────────────────────────────────
 
-TMDB_API_TOKEN = os.getenv("TMDB_API_TOKEN")
 HEADERS = {"Authorization": f"Bearer {TMDB_API_TOKEN}"}
 BASE_URL = "https://api.themoviedb.org/3"
 
@@ -31,18 +36,27 @@ def fetch_movies(pages: int = 3) -> list[dict]:
     print(f"Fetched {len(movies)} films")
     return movies
 
+@task(retries=2, name="Fetch Genre Map")
+def fetch_genre_map() -> dict:
+    r = requests.get(f"{BASE_URL}/genre/movie/list", headers=HEADERS)
+    genres = r.json().get("genres", [])
+    return {g["id"]: g["name"] for g in genres}
+
 
 @task(retries=2)
 def add_streaming_info(movies: list[dict]) -> list[dict]:
     for movie in movies:
-        r = requests.get(f"{BASE_URL}/movie/{movie['id']}/watch/providers", headers=HEADERS)
-        providers = r.json().get("results", {}).get("GB", {}).get("flatrate", [])
+        try:
+            r = requests.get(f"{BASE_URL}/movie/{movie['id']}/watch/providers", headers=HEADERS)
+            providers = r.json().get("results", {}).get("GB", {}).get("flatrate", [])
+        except Exception:
+            providers = []
         movie["streaming_platforms"] = [p["provider_name"] for p in providers]
         movie["on_major_platform"] = bool({p["provider_id"] for p in providers} & MAJOR_PLATFORMS)
     return movies
 
 
-@task
+@task(name="Filter & Save")
 def filter_and_save(movies: list[dict], genre_map: dict) -> str:
     df = pd.DataFrame(movies)[["title", "release_date", "vote_average", "vote_count", "overview", "genre_ids", "poster_path", "streaming_platforms", "on_major_platform"]]
     df["poster_path"] = df["poster_path"].fillna("")
@@ -57,16 +71,13 @@ def filter_and_save(movies: list[dict], genre_map: dict) -> str:
         (df["on_major_platform"] == False)
     ].sort_values("vote_average", ascending=False)
 
+    if reel.empty:
+        print("Warning: no films passed the filter — CSV not updated")
+        return OUTPUT_PATH
+
     reel.to_csv(OUTPUT_PATH, index=False)
     print(f"Saved {len(reel)} films to {OUTPUT_PATH} out of {len(df)} fetched")
     return OUTPUT_PATH
-
-@task
-def fetch_genre_map() -> dict:
-    r = requests.get(f"{BASE_URL}/genre/movie/list", headers=HEADERS)
-    genres = r.json().get("genres", [])
-    return {g["id"]: g["name"] for g in genres}
-
 
 # ── FLOW ──────────────────────────────────────────────────────────────────────
 
