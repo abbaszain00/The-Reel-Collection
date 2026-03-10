@@ -1,3 +1,4 @@
 .env
 reel_collection.csv
 venv/
+.venv/
