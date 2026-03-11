@@ -33,10 +33,20 @@ all_languages = (
     df["language"].dropna().unique()
 )
 
+# Build director list
+all_directors = (
+    df["director"]
+    .str.split(", ")
+    .explode()
+    .dropna()
+    .unique()
+)
+
 # Reset filters
 if st.sidebar.button("🔄 Reset filters"):
     st.session_state.genre = "All genres"
     st.session_state.language = "All languages"
+    st.session_state.director = "All directors"
     st.session_state.years = (1900, 2025)
     st.rerun()
 
@@ -51,6 +61,13 @@ selected_language = st.sidebar.selectbox(
     ["All languages"] + sorted(all_languages.tolist()),
     key="language"
 )
+
+selected_director = st.sidebar.selectbox(
+    "Director",
+    ["All directors"] + sorted(all_directors.tolist()),
+    key="director"
+)
+st.sidebar.divider()
 
 # Build a list to sort results by
 sort_options = {
@@ -79,11 +96,15 @@ if selected_genre != "All genres":
 if selected_language != "All languages":
     filtered_df = filtered_df[
         filtered_df["language"] == selected_language]
+
 # Apply a year filter
 filtered_df = filtered_df[
     (filtered_df["year"] >= years[0]) &
-    (filtered_df["year"] <= years[1])
-]
+    (filtered_df["year"] <= years[1])]
+
+if selected_director != "All directors":
+    filtered_df = filtered_df[
+    filtered_df["director"].str.contains(selected_director, na=False)]
 
 #sort and take top 5
 filtered_df = (
@@ -102,6 +123,9 @@ if selected_genre != "All genres":
 
 if selected_language != "All languages":
     temp_df = temp_df[temp_df["language"] == selected_language]
+
+if selected_director != "All directors":
+    temp_df = temp_df[temp_df["director"] == selected_director]
 
 temp_df = temp_df[
     (temp_df["year"] >= years[0]) &
