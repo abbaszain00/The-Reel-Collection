@@ -4,11 +4,11 @@ import pandas as pd
 from prefect import flow, task
 from datetime import datetime
 from dotenv import load_dotenv
+from concurrent.futures import ThreadPoolExecutor
 
 load_dotenv()
 
 TMDB_API_TOKEN = os.getenv("TMDB_API_TOKEN")
-
 
 if not TMDB_API_TOKEN:
     raise ValueError("TMDB_API_TOKEN not found. Check your .env file.")
@@ -36,27 +36,33 @@ def fetch_movies(pages: int = 10) -> list[dict]:
     print(f"Fetched {len(movies)} films")
     return movies
 
+
 @task(retries=2, name="Fetch Genre Map")
 def fetch_genre_map() -> dict:
     r = requests.get(f"{BASE_URL}/genre/movie/list", headers=HEADERS)
     genres = r.json().get("genres", [])
     return {g["id"]: g["name"] for g in genres}
 
+
 @task(retries=2, name="Fetch Keywords")
 def fetch_keywords(movies: list[dict]) -> list[dict]:
-    for movie in movies:
+    def get_keywords(movie):
         try:
             r = requests.get(f"{BASE_URL}/movie/{movie['id']}/keywords", headers=HEADERS)
             keywords = [k["name"] for k in r.json().get("keywords", [])]
             movie["keywords"] = ", ".join(keywords[:5])
         except Exception:
             movie["keywords"] = ""
+        return movie
+
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        movies = list(executor.map(get_keywords, movies))
     return movies
 
 
 @task(retries=2)
 def add_streaming_info(movies: list[dict]) -> list[dict]:
-    for movie in movies:
+    def get_streaming(movie):
         try:
             r = requests.get(f"{BASE_URL}/movie/{movie['id']}/watch/providers", headers=HEADERS)
             providers = r.json().get("results", {}).get("GB", {}).get("flatrate", [])
@@ -64,6 +70,10 @@ def add_streaming_info(movies: list[dict]) -> list[dict]:
             providers = []
         movie["streaming_platforms"] = [p["provider_name"] for p in providers]
         movie["on_major_platform"] = bool({p["provider_id"] for p in providers} & MAJOR_PLATFORMS)
+        return movie
+
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        movies = list(executor.map(get_streaming, movies))
     return movies
 
 
@@ -74,7 +84,6 @@ def filter_and_save(movies: list[dict], genre_map: dict) -> str:
     df["year"] = pd.to_datetime(df["release_date"], errors="coerce").dt.year
     df["genres"] = df["genre_ids"].apply(lambda ids: ", ".join([genre_map.get(i, "") for i in ids]))
     df["last_updated"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    
 
     reel = df[
         (df["vote_average"] >= MIN_RATING) &
@@ -89,6 +98,7 @@ def filter_and_save(movies: list[dict], genre_map: dict) -> str:
     reel.to_csv(OUTPUT_PATH, index=False)
     print(f"Saved {len(reel)} films to {OUTPUT_PATH} out of {len(df)} fetched")
     return OUTPUT_PATH
+
 
 # ── FLOW ──────────────────────────────────────────────────────────────────────
 
