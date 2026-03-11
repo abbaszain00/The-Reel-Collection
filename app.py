@@ -22,10 +22,22 @@ selected_genre = st.sidebar.selectbox(
     sorted(all_genres)
 )
 
+# Build a list to sort results by
+sort_options = {
+    "Vote Average ⭐": "vote_average",
+    "Year 📅": "year",
+    "Vote Count 🗳️": "vote_count"
+}
+
+selected_filter = st.sidebar.selectbox(
+    "Order by",
+    list(sort_options.keys())
+)
+
 # Filter movies containing that genre
 filtered_df = (
     df[df["genres"].str.contains(selected_genre)]
-    .sort_values("vote_average", ascending=False)
+    .sort_values(sort_options[selected_filter], ascending=False)
     .head(5)
 )
 
