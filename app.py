@@ -176,7 +176,7 @@ if selected_keywords:
 #sort and take top 5
 filtered_df = (
     filtered_df
-    .sort_values(sort_options[selected_filter], ascending=Falsst.session_state.ascending)
+    .sort_values(sort_options[selected_filter], ascending=st.session_state.ascending)
     .head(6)
 )
 
