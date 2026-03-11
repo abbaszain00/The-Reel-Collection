@@ -31,7 +31,13 @@ st.markdown("""
             color: #59C9A5; 
             display: block;
         }
-            
+        /* Smaller director text */
+        .director-text {
+            font-size: 0.7rem;
+            color: #888;
+            margin-top: 0.5rem;
+            margin-bottom: 0.5rem;
+        } 
     </style>
 """, unsafe_allow_html=True)
 
@@ -273,19 +279,13 @@ if len(movies_list) > 0:
             
             st.write(f"⭐ Rating: {row['vote_average']}/10")
             st.write(f"📅 Year: {row['year']}")
-            
-            if pd.notna(row.get("vote_count")):
-                st.caption(f"🗳️ {row['vote_count']:,} votes")
-            
-            st.markdown(f"""
-                <div style="height: 60px; display: flex; align-items: center;">
-                    {row['genres']}
-                </div>
-            """, unsafe_allow_html=True)
-            #st.caption(f"Genres: {row['genres']}")
+            st.write(f"🗳️ {row['vote_count']:,} votes")
+            st.write(f"{row['genres']}")
+
             with st.expander("Show more details"):
-                if pd.notna(row.get("overview")):
-                    st.write(f"**Overview:** {row['overview']}")
+                st.markdown(f'<p class="director-text">Directed by {row["director"]}</p>', unsafe_allow_html=True)
+                st.write(f"**Overview:** {row['overview']}")
+
 # Second row - remaining movies (up to 3 more)
 if len(movies_list) > 3:
     cols_row2 = st.columns(3)
@@ -305,18 +305,12 @@ if len(movies_list) > 3:
             
             st.write(f"⭐ Rating: {row['vote_average']}/10")
             st.write(f"📅 Year: {row['year']}")
-            
-            if pd.notna(row.get("vote_count")):
-                st.caption(f"🗳️ {row['vote_count']:,} votes")
-            
-            st.markdown(f"""
-                <div style="height: 60px; display: flex; align-items: center;">
-                    {row['genres']}
-                </div>
-            """, unsafe_allow_html=True)
-            #st.caption(f"Genres: {row['genres']}")
+            st.write(f"🗳️ {row['vote_count']:,} votes")
+            st.write(f"{row['genres']}")
+
             with st.expander("Show more details"):
-                if pd.notna(row.get("overview")):
-                    st.write(f"**Overview:** {row['overview']}")
+                st.markdown(f'<p class="director-text">Directed by {row["director"]}</p>', unsafe_allow_html=True)
+                st.write(f"**Overview:** {row['overview']}")
+
 if len(movies_list) == 0:
     st.info("No movies found for this selection.")
