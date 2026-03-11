@@ -8,6 +8,14 @@ df = load_data()
 
 st.title("🎬 The Reel Collection")
 
+if "genre" not in st.session_state:
+    st.session_state.genre = "All genres"
+
+if "language" not in st.session_state:
+    st.session_state.language = "All languages"
+
+
+
 # Build genre list
 all_genres = (
     df["genres"]
@@ -17,9 +25,21 @@ all_genres = (
     .unique()
 )
 
+# Build language list
+all_languages = (
+    df["original_language"].dropna().unique()
+)
+
 selected_genre = st.sidebar.selectbox(
     "Choose a genre",
-    sorted(all_genres)
+    ["All genres"] + sorted(all_genres.tolist()),
+    key="genre"
+)
+
+selected_language = st.sidebar.selectbox(
+    "Choose a Language",
+    ["All languages"] + sorted(all_languages.tolist()),
+    key="language"
 )
 
 # Build a list to sort results by
@@ -34,12 +54,28 @@ selected_filter = st.sidebar.selectbox(
     list(sort_options.keys())
 )
 
-# Filter movies containing that genre
+filtered_df = df.copy()
+
+# Apply genre filter if selected
+if selected_genre != "All genres":
+    filtered_df = filtered_df[
+        filtered_df["genres"].str.contains(selected_genre, na=False)]
+
+# Apply language filter if selected
+if selected_language != "All languages":
+    filtered_df = filtered_df[
+        filtered_df["original_language"] == selected_language]
+
+#sort and take top 5
 filtered_df = (
-    df[df["genres"].str.contains(selected_genre)]
+    filtered_df
     .sort_values(sort_options[selected_filter], ascending=False)
     .head(5)
 )
+
+if st.sidebar.button("Reset filters"):
+    st.session_state.genre = "All genres"
+    st.session_state.language = "All languages"
 
 st.subheader(f"Top 5 {selected_genre} Movies")
 
