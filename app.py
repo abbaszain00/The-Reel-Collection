@@ -1,5 +1,6 @@
 import streamlit as st 
 import pandas as pd 
+from datetime import datetime
 
 st.set_page_config(layout="wide", page_title="The Reel Collection", page_icon="🎬")
 
@@ -9,6 +10,30 @@ def load_data():
 df = load_data()
 
 st.title("🎬 The Reel Collection")
+
+st.markdown("""
+    <style>
+        .stat-bar { 
+            display: flex; 
+            gap: 2rem; 
+            padding: 1rem;  
+            border-radius: 8px; 
+            margin-bottom: 1.5rem;
+        }
+        .stat-item { 
+            color: white; 
+            font-size: 1rem; 
+            text-align: center;
+        }
+        .stat-value { 
+            font-size: 1.6rem; 
+            font-weight: bold; 
+            color: #59C9A5; 
+            display: block;
+        }
+            
+    </style>
+""", unsafe_allow_html=True)
 
 if "genre" not in st.session_state:
     st.session_state.genre = "All genres"
@@ -21,6 +46,8 @@ if "years" not in st.session_state:
 
 if "ascending" not in st.session_state:
     st.session_state.ascending = False
+if "keywords" not in st.session_state:
+    st.session_state.keywords = []
 
 # Build genre list
 all_genres = (
@@ -51,6 +78,7 @@ if st.sidebar.button("🔄 Reset filters"):
     st.session_state.language = "All languages"
     st.session_state.director = "All directors"
     st.session_state.years = (1900, 2025)
+    st.session_state.keywords = []
     st.rerun()
 
 selected_genre = st.sidebar.selectbox(
@@ -100,6 +128,24 @@ years = st.sidebar.slider("Year Range", 1900, 2025, key="years")
 
 filtered_df = df.copy()
 
+# Build keyword list
+all_keywords = (
+    df["keywords"]
+    .dropna()
+    .str.split(", ")
+    .explode()
+    .str.strip()
+)
+keyword_counts = all_keywords.value_counts()
+
+EXCLUDED_KEYWORDS = {"aftercreditsstinger", "duringcreditsstinger"}
+
+common_keywords = sorted(
+    k for k, count in keyword_counts.items()
+    if count >= 3 and k not in EXCLUDED_KEYWORDS
+)
+selected_keywords = st.sidebar.multiselect("Theme", common_keywords, key="keywords")
+
 # Apply genre filter if selected
 if selected_genre != "All genres":
     filtered_df = filtered_df[
@@ -119,12 +165,75 @@ if selected_director != "All directors":
     filtered_df = filtered_df[
     filtered_df["director"].str.contains(selected_director, na=False)]
 
+# Apply keyword filter
+if selected_keywords:
+    filtered_df = filtered_df[
+        filtered_df["keywords"].apply(
+            lambda x: any(k in x.split(", ") for k in selected_keywords) if pd.notna(x) else False
+        )
+    ]
+
 #sort and take top 5
 filtered_df = (
     filtered_df
-    .sort_values(sort_options[selected_filter], ascending=st.session_state.ascending)
+    .sort_values(sort_options[selected_filter], ascending=Falsst.session_state.ascending)
     .head(6)
 )
+
+# Debug info to show how many movies match the filters
+total_matches = len(df.copy())
+
+temp_df = df.copy()
+
+if selected_genre != "All genres":
+    temp_df = temp_df[temp_df["genres"].str.contains(selected_genre, na=False)]
+
+if selected_language != "All languages":
+    temp_df = temp_df[temp_df["language"] == selected_language]
+
+if selected_keywords:
+    temp_df = temp_df[
+        temp_df["keywords"].apply(
+            lambda x: any(k in x.split(", ") for k in selected_keywords) if pd.notna(x) else False
+        )
+    ]
+
+temp_df = temp_df[
+    (temp_df["year"] >= years[0]) &
+    (temp_df["year"] <= years[1])
+]
+
+total_matches = len(temp_df)
+
+avg_rating = round(df["vote_average"].mean(), 2)
+num_languages = df["language"].nunique()
+last_updated = df["last_updated"].iloc[0] if "last_updated" in df.columns else "N/A"
+last_updated_raw = df["last_updated"].iloc[0] if "last_updated" in df.columns else None
+
+if last_updated_raw:
+    last_updated_dt = datetime.strptime(last_updated_raw, "%Y-%m-%d %H:%M:%S")
+    diff = datetime.now() - last_updated_dt
+    seconds = int(diff.total_seconds())
+    if seconds < 60:
+        last_updated = f"{seconds} seconds ago"
+    elif seconds < 3600:
+        last_updated = f"{seconds // 60} minutes ago"
+    elif seconds < 86400:
+        last_updated = f"{seconds // 3600} hours ago"
+    else:
+        last_updated = f"{seconds // 86400} days ago"
+else:
+    last_updated = "N/A"
+
+st.markdown(f"""
+    <div class="stat-bar">
+        <div class="stat-item"><span class="stat-value">{len(df)}</span>Films on the shelf</div>
+        <div class="stat-item"><span class="stat-value">{num_languages}</span>Languages</div>
+        <div class="stat-item"><span class="stat-value">⭐ {avg_rating}</span>Avg rating</div>
+        <div class="stat-item"><span class="stat-value">{total_matches}</span>Matching filters</div>
+        <div class="stat-item"><span class="stat-value">{last_updated}</span>Last updated</div>
+    </div>
+""", unsafe_allow_html=True)
 
 # Display movies in a 3x2 grid (3 in first row, 3 in second row)
 movies_list = list(filtered_df.iterrows())
