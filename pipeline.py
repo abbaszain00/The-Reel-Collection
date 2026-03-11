@@ -21,6 +21,7 @@ BASE_URL = "https://api.themoviedb.org/3"
 MAJOR_PLATFORMS = {8, 9, 337, 350}  # Netflix, Prime, Disney+, Apple TV+
 MIN_RATING = 7.0
 MIN_VOTES = 500
+MIN_RUNTIME = 40
 LANGUAGE_MAP = {
     "en": "English",
     "it": "Italian",
@@ -124,11 +125,12 @@ def filter_and_save(movies: list[dict], genre_map: dict) -> str:
     df["language"] = df["original_language"].map(LANGUAGE_MAP).fillna(df["original_language"])
 
     df = df.drop(columns=["genre_ids", "original_language"])
-    
+
     reel = df[
         (df["vote_average"] >= MIN_RATING) &
         (df["vote_count"] >= MIN_VOTES) &
-        (df["on_major_platform"] == False)
+        (df["on_major_platform"] == False) &
+        (df["runtime"] >= MIN_RUNTIME)
     ].sort_values("vote_average", ascending=False)
 
     if reel.empty:
