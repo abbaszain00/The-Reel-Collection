@@ -27,7 +27,7 @@ OUTPUT_PATH = "reel_collection.csv"
 # ── TASKS ─────────────────────────────────────────────────────────────────────
 
 @task(retries=2)
-def fetch_movies(pages: int = 3) -> list[dict]:
+def fetch_movies(pages: int = 10) -> list[dict]:
     movies = []
     for page in range(1, pages + 1):
         r = requests.get(f"{BASE_URL}/movie/top_rated", headers=HEADERS, params={"page": page})
@@ -69,7 +69,7 @@ def add_streaming_info(movies: list[dict]) -> list[dict]:
 
 @task(name="Filter & Save")
 def filter_and_save(movies: list[dict], genre_map: dict) -> str:
-    df = pd.DataFrame(movies)[["title", "release_date", "vote_average", "vote_count", "overview", "genre_ids", "poster_path", "keywords", "streaming_platforms", "on_major_platform"]]
+    df = pd.DataFrame(movies)[["title", "release_date", "vote_average", "vote_count", "overview", "genre_ids", "poster_path", "keywords", "original_language", "streaming_platforms", "on_major_platform"]]
     df["poster_path"] = df["poster_path"].fillna("")
     df["year"] = pd.to_datetime(df["release_date"], errors="coerce").dt.year
     df["genres"] = df["genre_ids"].apply(lambda ids: ", ".join([genre_map.get(i, "") for i in ids]))
