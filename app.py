@@ -81,6 +81,21 @@ if st.sidebar.button("🔄 Reset filters"):
     st.session_state.keywords = []
     st.rerun()
 
+# Refresh shelf
+if st.sidebar.button("🔄 Refresh shelf"):
+    import subprocess
+    import sys
+    with st.spinner("Running pipeline..."):
+        result = subprocess.run(
+            [sys.executable, "pipeline.py"],
+            capture_output=True,
+            text=True
+        )
+        st.write(result.stdout)
+        st.write(result.stderr)
+    st.cache_data.clear()
+    st.rerun()
+
 selected_genre = st.sidebar.selectbox(
     "Choose a genre",
     ["All genres"] + sorted(all_genres.tolist()),
