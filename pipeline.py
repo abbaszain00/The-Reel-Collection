@@ -76,10 +76,31 @@ def add_streaming_info(movies: list[dict]) -> list[dict]:
         movies = list(executor.map(get_streaming, movies))
     return movies
 
+@task(retries=2, name="Fetch Director and Runtime")
+def fetch_director_and_runtime(movies: list[dict]) -> list[dict]:
+    def get_details(movie):
+        try:
+            r = requests.get(f"{BASE_URL}/movie/{movie['id']}", headers=HEADERS)
+            movie["runtime"] = r.json().get("runtime", None)
+        except Exception:
+            movie["runtime"] = None
+        try:
+            r = requests.get(f"{BASE_URL}/movie/{movie['id']}/credits", headers=HEADERS)
+            crew = r.json().get("crew", [])
+            directors = [p["name"] for p in crew if p["job"] == "Director"]
+            movie["director"] = ", ".join(directors)
+        except Exception:
+            movie["director"] = ""
+        return movie
+
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        movies = list(executor.map(get_details, movies))
+    return movies
+
 
 @task(name="Filter & Save")
 def filter_and_save(movies: list[dict], genre_map: dict) -> str:
-    df = pd.DataFrame(movies)[["title", "release_date", "vote_average", "vote_count", "overview", "genre_ids", "poster_path", "keywords", "original_language", "streaming_platforms", "on_major_platform"]]
+    df = pd.DataFrame(movies)[["title", "release_date", "vote_average", "vote_count", "overview", "genre_ids", "poster_path", "keywords", "original_language", "runtime", "director", "streaming_platforms", "on_major_platform"]]
     df["poster_path"] = df["poster_path"].fillna("")
     df["year"] = pd.to_datetime(df["release_date"], errors="coerce").dt.year
     df["genres"] = df["genre_ids"].apply(lambda ids: ", ".join([genre_map.get(i, "") for i in ids]))
@@ -108,6 +129,7 @@ def reel_collection_pipeline():
     genre_map = fetch_genre_map()
     movies = add_streaming_info(movies)
     movies = fetch_keywords(movies)
+    movies = fetch_director_and_runtime(movies)
     filter_and_save(movies, genre_map)
 
 
