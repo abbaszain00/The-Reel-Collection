@@ -198,6 +198,9 @@ if selected_keywords:
         )
     ]
 
+if selected_director != "All directors":
+    temp_df = temp_df[temp_df["director"].str.contains(selected_director, na=False)]
+
 temp_df = temp_df[
     (temp_df["year"] >= years[0]) &
     (temp_df["year"] <= years[1])
@@ -205,8 +208,8 @@ temp_df = temp_df[
 
 total_matches = len(temp_df)
 
-avg_rating = round(df["vote_average"].mean(), 2)
-num_languages = df["language"].nunique()
+avg_rating = round(temp_df["vote_average"].mean(), 2) if not temp_df.empty else "N/A"
+num_languages = temp_df["language"].nunique()
 last_updated = df["last_updated"].iloc[0] if "last_updated" in df.columns else "N/A"
 last_updated_raw = df["last_updated"].iloc[0] if "last_updated" in df.columns else None
 
@@ -227,10 +230,9 @@ else:
 
 st.markdown(f"""
     <div class="stat-bar">
-        <div class="stat-item"><span class="stat-value">{len(df)}</span>Films on the shelf</div>
+        <div class="stat-item"><span class="stat-value">{len(temp_df)}</span>Films on the shelf</div>
         <div class="stat-item"><span class="stat-value">{num_languages}</span>Languages</div>
         <div class="stat-item"><span class="stat-value">⭐ {avg_rating}</span>Avg rating</div>
-        <div class="stat-item"><span class="stat-value">{total_matches}</span>Matching filters</div>
         <div class="stat-item"><span class="stat-value">{last_updated}</span>Last updated</div>
     </div>
 """, unsafe_allow_html=True)
