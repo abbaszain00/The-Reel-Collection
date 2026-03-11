@@ -123,6 +123,8 @@ def filter_and_save(movies: list[dict], genre_map: dict) -> str:
     df["last_updated"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     df["language"] = df["original_language"].map(LANGUAGE_MAP).fillna(df["original_language"])
 
+    df = df.drop(columns=["genre_ids", "original_language"])
+    
     reel = df[
         (df["vote_average"] >= MIN_RATING) &
         (df["vote_count"] >= MIN_VOTES) &
