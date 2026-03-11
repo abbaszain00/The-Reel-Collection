@@ -19,6 +19,9 @@ if "language" not in st.session_state:
 if "years" not in st.session_state:
     st.session_state.years = (1900, 2025)
 
+if "ascending" not in st.session_state:
+    st.session_state.ascending = False
+
 # Build genre list
 all_genres = (
     df["genres"]
@@ -59,10 +62,20 @@ sort_options = {
     "Vote Count 🗳️": "vote_count"
 }
 
-selected_filter = st.sidebar.selectbox(
-    "Order by",
-    list(sort_options.keys())
-)
+def toggle_sort():
+    st.session_state.ascending = not st.session_state.ascending
+
+col1, col2 = st.sidebar.columns([4,1])
+
+with col1:
+    selected_filter = st.selectbox(
+        "Order by",
+        list(sort_options.keys())
+    )
+with col2:
+    arrow = "⬆️" if st.session_state.ascending else "⬇️"
+    st.button(arrow, on_click=toggle_sort, key="sort_direction")
+
 
 # Year filter slider - placed before genre filtering
 years = st.sidebar.slider("Year Range", 1900, 2025, key="years")
@@ -88,8 +101,8 @@ filtered_df = filtered_df[
 #sort and take top 5
 filtered_df = (
     filtered_df
-    .sort_values(sort_options[selected_filter], ascending=False)
-    .head(5)
+    .sort_values(sort_options[selected_filter], ascending=st.session_state.ascending)
+    .head(6)
 )
 
 # Debug info to show how many movies match the filters
