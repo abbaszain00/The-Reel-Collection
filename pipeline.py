@@ -21,6 +21,22 @@ BASE_URL = "https://api.themoviedb.org/3"
 MAJOR_PLATFORMS = {8, 9, 337, 350}  # Netflix, Prime, Disney+, Apple TV+
 MIN_RATING = 7.0
 MIN_VOTES = 500
+LANGUAGE_MAP = {
+    "en": "English",
+    "it": "Italian",
+    "ko": "Korean",
+    "ja": "Japanese",
+    "pt": "Portuguese",
+    "fr": "French",
+    "es": "Spanish",
+    "ru": "Russian",
+    "sv": "Swedish",
+    "ar": "Arabic",
+    "zh": "Chinese",
+    "da": "Danish",
+    "lv": "Latvian",
+    "cn": "Cantonese"
+}
 OUTPUT_PATH = "reel_collection.csv"
 
 
@@ -105,6 +121,7 @@ def filter_and_save(movies: list[dict], genre_map: dict) -> str:
     df["year"] = pd.to_datetime(df["release_date"], errors="coerce").dt.year
     df["genres"] = df["genre_ids"].apply(lambda ids: ", ".join([genre_map.get(i, "") for i in ids]))
     df["last_updated"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    df["language"] = df["original_language"].map(LANGUAGE_MAP).fillna(df["original_language"])
 
     reel = df[
         (df["vote_average"] >= MIN_RATING) &
