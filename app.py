@@ -105,28 +105,6 @@ filtered_df = (
     .head(6)
 )
 
-# Debug info to show how many movies match the filters
-total_matches = len(df.copy())
-
-temp_df = df.copy()
-
-if selected_genre != "All genres":
-    temp_df = temp_df[temp_df["genres"].str.contains(selected_genre, na=False)]
-
-if selected_language != "All languages":
-    temp_df = temp_df[temp_df["language"] == selected_language]
-
-temp_df = temp_df[
-    (temp_df["year"] >= years[0]) &
-    (temp_df["year"] <= years[1])
-]
-
-total_matches = len(temp_df)
-
-st.caption(
-    f"Found {total_matches} movies in year range {years[0]}-{years[1]}, showing top {len(filtered_df)}"
-)
-
 # Display movies in a 3x2 grid (3 in first row, 3 in second row)
 movies_list = list(filtered_df.iterrows())
 # First row - 3 movies
