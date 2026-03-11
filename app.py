@@ -19,6 +19,9 @@ if "language" not in st.session_state:
 if "years" not in st.session_state:
     st.session_state.years = (1900, 2025)
 
+if "keywords" not in st.session_state:
+    st.session_state.keywords = []
+
 # Build genre list
 all_genres = (
     df["genres"]
@@ -38,6 +41,7 @@ if st.sidebar.button("🔄 Reset filters"):
     st.session_state.genre = "All genres"
     st.session_state.language = "All languages"
     st.session_state.years = (1900, 2025)
+    st.session_state.keywords = []
     st.rerun()
 
 selected_genre = st.sidebar.selectbox(
@@ -70,6 +74,24 @@ years = st.sidebar.slider("Year Range", 1900, 2025, key="years")
 
 filtered_df = df.copy()
 
+# Build keyword list
+all_keywords = (
+    df["keywords"]
+    .dropna()
+    .str.split(", ")
+    .explode()
+    .str.strip()
+)
+keyword_counts = all_keywords.value_counts()
+
+EXCLUDED_KEYWORDS = {"aftercreditsstinger", "duringcreditsstinger"}
+
+common_keywords = sorted(
+    k for k, count in keyword_counts.items()
+    if count >= 3 and k not in EXCLUDED_KEYWORDS
+)
+selected_keywords = st.sidebar.multiselect("Theme", common_keywords, key="keywords")
+
 # Apply genre filter if selected
 if selected_genre != "All genres":
     filtered_df = filtered_df[
@@ -84,6 +106,14 @@ filtered_df = filtered_df[
     (filtered_df["year"] >= years[0]) &
     (filtered_df["year"] <= years[1])
 ]
+
+# Apply keyword filter
+if selected_keywords:
+    filtered_df = filtered_df[
+        filtered_df["keywords"].apply(
+            lambda x: any(k in x.split(", ") for k in selected_keywords) if pd.notna(x) else False
+        )
+    ]
 
 #sort and take top 5
 filtered_df = (
@@ -102,6 +132,13 @@ if selected_genre != "All genres":
 
 if selected_language != "All languages":
     temp_df = temp_df[temp_df["language"] == selected_language]
+
+if selected_keywords:
+    temp_df = temp_df[
+        temp_df["keywords"].apply(
+            lambda x: any(k in x.split(", ") for k in selected_keywords) if pd.notna(x) else False
+        )
+    ]
 
 temp_df = temp_df[
     (temp_df["year"] >= years[0]) &
