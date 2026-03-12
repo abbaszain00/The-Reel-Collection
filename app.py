@@ -43,7 +43,6 @@ st.markdown("""
             margin-bottom: 1.5rem;
         }
         .stat-item { 
-            color: white; 
             font-size: 1rem; 
             text-align: center;
         }
@@ -170,6 +169,7 @@ filtered_df = (
 )
 
 # Stat bar (uses full df filtered by current selection)
+
 temp_df = df.copy()
 
 if selected_genre != "All genres":
@@ -221,8 +221,11 @@ st.markdown(f"""
     </div>
 """, unsafe_allow_html=True)
 
-# Movie grid
 movies_list = list(filtered_df.iterrows())
+st.caption(f'Top {len(movies_list)} displayed')
+st.divider()
+
+# Movie grid
 
 if len(movies_list) > 0:
     cols_row1 = st.columns(3)
