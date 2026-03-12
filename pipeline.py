@@ -44,7 +44,7 @@ OUTPUT_PATH = "reel_collection.csv"
 # ── TASKS ─────────────────────────────────────────────────────────────────────
 
 @task(retries=2)
-def fetch_movies(pages: int = 10) -> list[dict]:
+def fetch_movies(pages: int = 10):
     movies = []
     for page in range(1, pages + 1):
         r = requests.get(f"{BASE_URL}/movie/top_rated", headers=HEADERS, params={"page": page})
@@ -53,17 +53,14 @@ def fetch_movies(pages: int = 10) -> list[dict]:
     print(f"Fetched {len(movies)} films")
     return movies
 
-
 @task(retries=2, name="Fetch Genre Map")
-def fetch_genre_map() -> dict:
+def fetch_genre_map():
     r = requests.get(f"{BASE_URL}/genre/movie/list", headers=HEADERS)
     genres = r.json().get("genres", [])
     return {g["id"]: g["name"] for g in genres}
 
-
 @task(retries=2, name="Fetch Movie Details")
-def fetch_movie_details(movie: dict) -> dict:
-    # One request per film using append_to_response instead of three separate calls
+def fetch_movie_details(movie):
     try:
         r = requests.get(
             f"{BASE_URL}/movie/{movie['id']}",
@@ -71,28 +68,22 @@ def fetch_movie_details(movie: dict) -> dict:
             params={"append_to_response": "credits,watch/providers"}
         )
         data = r.json()
-
         movie["runtime"] = data.get("runtime", None)
-
         crew = data.get("credits", {}).get("crew", [])
         directors = [p["name"] for p in crew if p["job"] == "Director"]
         movie["director"] = ", ".join(directors)
-
         providers = data.get("watch/providers", {}).get("results", {}).get("GB", {}).get("flatrate", [])
         movie["streaming_platforms"] = [p["provider_name"] for p in providers]
         movie["on_major_platform"] = bool({p["provider_id"] for p in providers} & MAJOR_PLATFORMS)
-
     except Exception:
         movie["runtime"] = None
         movie["director"] = ""
         movie["streaming_platforms"] = []
         movie["on_major_platform"] = False
-
     return movie
 
-
 @task(retries=2, name="Fetch Keywords")
-def fetch_keywords(movie: dict) -> dict:
+def fetch_keywords(movie):
     try:
         r = requests.get(f"{BASE_URL}/movie/{movie['id']}/keywords", headers=HEADERS)
         movie["keywords"] = ", ".join([k["name"] for k in r.json().get("keywords", [])][:5])
@@ -100,9 +91,8 @@ def fetch_keywords(movie: dict) -> dict:
         movie["keywords"] = ""
     return movie
 
-
 @task(name="Filter & Save")
-def filter_and_save(movies: list[dict], genre_map: dict) -> str:
+def filter_and_save(movies, genre_map):
     df = pd.DataFrame(movies)[["title", "release_date", "vote_average", "vote_count", "overview", "genre_ids", "poster_path", "keywords", "original_language", "runtime", "director", "streaming_platforms", "on_major_platform"]]
     df["poster_path"] = df["poster_path"].fillna("")
     df["year"] = pd.to_datetime(df["release_date"], errors="coerce").dt.year
@@ -110,18 +100,15 @@ def filter_and_save(movies: list[dict], genre_map: dict) -> str:
     df["last_updated"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     df["language"] = df["original_language"].map(LANGUAGE_MAP).fillna(df["original_language"])
     df = df.drop(columns=["genre_ids", "original_language"])
-
     reel = df[
         (df["vote_average"] >= MIN_RATING) &
         (df["vote_count"] >= MIN_VOTES) &
         (df["on_major_platform"] == False) &
         (df["runtime"] >= MIN_RUNTIME)
     ].sort_values("vote_average", ascending=False)
-
     if reel.empty:
         print("Warning: no films passed the filter — CSV not updated")
         return OUTPUT_PATH
-
     reel.to_csv(OUTPUT_PATH, index=False)
     print(f"Saved {len(reel)} films to {OUTPUT_PATH} out of {len(df)} fetched")
     return OUTPUT_PATH
