@@ -2,3 +2,4 @@
 reel_collection.csv
 venv/
 .venv/
+movie_cache.json
