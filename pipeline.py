@@ -1,10 +1,9 @@
 import os
-import json
 import requests
 import pandas as pd
 from prefect import flow, task
 from prefect.task_runners import ThreadPoolTaskRunner
-from datetime import datetime, timedelta
+from datetime import datetime
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -23,8 +22,6 @@ MAJOR_PLATFORMS = {8, 9, 337, 350}  # Netflix, Prime, Disney+, Apple TV+
 MIN_RATING = 7.0
 MIN_VOTES = 500
 MIN_RUNTIME = 40
-CACHE_PATH = "movie_cache.json"
-CACHE_EXPIRY_DAYS = 7
 LANGUAGE_MAP = {
     "en": "English",
     "it": "Italian",
@@ -42,27 +39,6 @@ LANGUAGE_MAP = {
     "cn": "Cantonese"
 }
 OUTPUT_PATH = "reel_collection.csv"
-
-
-# ── CACHE ─────────────────────────────────────────────────────────────────────
-
-def load_cache() -> dict:
-    if os.path.exists(CACHE_PATH):
-        with open(CACHE_PATH) as f:
-            return json.load(f)
-    return {}
-
-
-def save_cache(cache: dict):
-    with open(CACHE_PATH, "w") as f:
-        json.dump(cache, f)
-
-
-def is_fresh(entry: dict, keys: list) -> bool:
-    if not entry or not all(k in entry for k in keys):
-        return False
-    cached_at = datetime.fromisoformat(entry["cached_at"])
-    return datetime.now() - cached_at < timedelta(days=CACHE_EXPIRY_DAYS)
 
 
 # ── TASKS ─────────────────────────────────────────────────────────────────────
@@ -157,47 +133,9 @@ def filter_and_save(movies: list[dict], genre_map: dict) -> str:
 def reel_collection_pipeline():
     movies = fetch_movies()
     genre_map = fetch_genre_map.submit()
-    cache = load_cache()
 
-    detail_keys = ["runtime", "director", "streaming_platforms", "on_major_platform"]
-    keyword_keys = ["keywords"]
-
-    # Only fetch details for films not already in the cache
-    stale = [m for m in movies if not is_fresh(cache.get(str(m["id"]), {}), detail_keys)]
-    fresh = [m for m in movies if is_fresh(cache.get(str(m["id"]), {}), detail_keys)]
-
-    fetched = [f.result() for f in fetch_movie_details.map(stale)] if stale else []
-
-    for movie in fresh:
-        entry = cache[str(movie["id"])]
-        for key in detail_keys:
-            movie[key] = entry[key]
-
-    for movie in fetched:
-        movie_id = str(movie["id"])
-        cache[movie_id] = {k: movie[k] for k in detail_keys}
-        cache[movie_id]["cached_at"] = datetime.now().isoformat()
-
-    movies = fetched + fresh
-
-    # Same for keywords
-    stale_kw = [m for m in movies if not is_fresh(cache.get(str(m["id"]), {}), keyword_keys)]
-    fresh_kw = [m for m in movies if is_fresh(cache.get(str(m["id"]), {}), keyword_keys)]
-
-    fetched_kw = [f.result() for f in fetch_keywords.map(stale_kw)] if stale_kw else []
-
-    for movie in fresh_kw:
-        movie["keywords"] = cache[str(movie["id"])]["keywords"]
-
-    for movie in fetched_kw:
-        movie_id = str(movie["id"])
-        cache[movie_id]["keywords"] = movie["keywords"]
-        cache[movie_id]["cached_at"] = datetime.now().isoformat()
-
-    movies = fetched_kw + fresh_kw
-
-    save_cache(cache)
-    print(f"Cache saved with {len(cache)} entries")
+    movies = [f.result() for f in fetch_movie_details.map(movies)]
+    movies = [f.result() for f in fetch_keywords.map(movies)]
 
     filter_and_save(movies, genre_map.result())
 
