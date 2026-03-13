@@ -2,6 +2,8 @@ import os
 import streamlit as st 
 import pandas as pd 
 from datetime import datetime
+import subprocess
+import sys
 
 st.set_page_config(layout="wide", page_title="The Reel Collection", page_icon="🎬")
 
@@ -16,8 +18,6 @@ df = load_data()
 st.title("🎬 The Reel Collection")
 
 if st.sidebar.button("🔄 Refresh shelf", key="refresh_top"):
-    import subprocess
-    import sys
     with st.spinner("Running pipeline..."):
         result = subprocess.run(
             [sys.executable, "pipeline.py"],
